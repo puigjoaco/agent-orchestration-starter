@@ -64,8 +64,12 @@ links. Use `t3_thread_organize` when asked to settle a thread.
 Codex app connectors such as Gmail (`codex_apps.gmail`) exist only in Codex. A
 Codex thread uses them directly. A Claude thread delegates that work to a Codex
 child with `delegate_task`, at the worker model and effort, with a self-contained
-brief naming the account, what to find or do, and what is authorized. Do not use
-Chrome or ask the user to sign in for something a connector can reach. Default to
+brief naming the account, what to find or do, and what is authorized. A connector
+reaches only the account it is connected to; confirm it with the connector's
+`get_profile`. Do not use Chrome or ask the user to sign in for something a
+connector can reach. For another account, or when the connector lacks permission
+for the action, use the Chrome worker: if `Agent Use` is already signed in to
+that account, use it; otherwise follow Website sign-ins. Either way, default to
 read-only: sending, replying, scheduling, deleting or labelling needs the user's
 approval for that specific action. Claude only has no connectors and uses Chrome.
 
