@@ -304,8 +304,13 @@ app running.
 
 1. Create an agent vault, for example `Agentes`. Move, rather than copy, the
    logins agents may use into it: each password lives once and edits sync
-   everywhere. Keep cards, banks, your main email and the 1Password login in
-   your private vault.
+   everywhere. The built-in Personal/Private vault can never be shared with a
+   service account, so logins left there stay invisible to agents. To move
+   many at once in 1Password, filter the private vault to the Login category,
+   select all and move them; cards, documents and notes are other categories
+   and stay behind. Then move back any logins you want to keep from agents
+   (for example banks, your main email and the 1Password login). Agents match
+   logins by website, so give each moved login its site URL.
 2. In 1Password, open **Developer > Directory > Service account** and create
    an account with **read items only**, limited to the agent vault. Service
    accounts work on Individual plans and cannot access Personal/Private vaults.
@@ -317,7 +322,8 @@ app running.
    in `~/.local/bin`.
 4. Save the service account token to `~/.config/op-agentes/token`, with directory
    mode 0700 and file mode 0600. Use a local editor or a hidden-input prompt;
-   never paste the token into chat, shell history or repo files.
+   never paste the token into chat, shell history or repo files. If you also
+   save it in 1Password, keep that copy in your private vault, not the agent vault.
 5. Keep the 1Password browser extension out of the `Agent Use` profile, so the
    browser worker cannot access the full account. Verify the restricted CLI
    access without printing the token:
