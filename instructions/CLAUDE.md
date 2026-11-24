@@ -61,6 +61,14 @@ top-level threads require an explicit user request; ordinary delegation remains
 child work. Read named threads before reporting on them and use their returned
 links. Use `t3_thread_organize` when asked to settle a thread.
 
+Codex app connectors such as Gmail (`codex_apps.gmail`) exist only in Codex. A
+Codex thread uses them directly. A Claude thread delegates that work to a Codex
+child with `delegate_task`, at the worker model and effort, with a self-contained
+brief naming the account, what to find or do, and what is authorized. Do not use
+Chrome or ask the user to sign in for something a connector can reach. Default to
+read-only: sending, replying, scheduling, deleting or labelling needs the user's
+approval for that specific action. Claude only has no connectors and uses Chrome.
+
 ## Orchestration
 
 These rules are for the main session. Assigned subagents do their brief themselves;
