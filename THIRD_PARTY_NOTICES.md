@@ -1,5 +1,13 @@
 # Third-party notices
 
+`skills/delegate-work/scripts/public_suffix_list.dat` contains the public-suffix
+rules from [publicsuffix/list](https://github.com/publicsuffix/list), revision
+`5eac4012cdb4d8fee9613d6497d1739c72d858bb`. The rules are unchanged;
+upstream comments and blank lines were omitted and a provenance header added.
+This file is licensed under the [Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/).
+Its source is available at the pinned revision above; update it from upstream
+when domain-registration rules change. No runtime download is performed.
+
 The starter's `full-send`, `full-stop` and `babysit-pr` skills are local
 adaptations of the upstream skills from
 [t3dotgg/tstack](https://github.com/t3dotgg/tstack), revision

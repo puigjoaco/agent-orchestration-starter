@@ -206,6 +206,11 @@ passwords and codes must never enter chat, reports, briefs, files, commits or
 memory. Otherwise ask the user to sign in. Stop on a tool refusal or failure,
 missing login, or ambiguous account; never guess or retry a refusal.
 
+With an agent vault token configured, check the vault with delegate-work's
+1Password helper before asking the user to sign in, and use a matching login;
+values go straight from the vault into the form and never into output. Ask the
+user only when no login matches, several match, or the helper refuses.
+
 Complete simple human checks: a checkbox, "Verify you are human", "Continue" or
 press-and-hold. Never use a CAPTCHA-solving service. Ask the user for image,
 audio or puzzle challenges. When two-factor defaults to a passkey, push or SMS,

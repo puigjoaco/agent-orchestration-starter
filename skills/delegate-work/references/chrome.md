@@ -88,6 +88,61 @@ Keep its Agent Use window open. If the tool cannot identify the profile it
 controls, report the ambiguity; never close other windows to force selection.
 The Node startup helper is for Codex's plugin.
 
+## Signing in with 1Password
+
+When the user has configured the agent vault token (README, Chrome setup step
+4), check the vault with `op-login.mjs` in the same Node REPL before asking the
+user to sign in. Use a matching login; ask the user through the orchestrator
+only when no login matches, several match, or the helper refuses. Declare
+bindings in one call:
+
+```js
+var listLogins = null, fillLogin = null, fillOtp = null, logins = null, login = null, url = null;
+```
+
+Import in a separate call:
+
+```js
+({ listLogins, fillLogin, fillOtp } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/op-login.mjs'));
+```
+
+Call `listLogins({ url })` with the current page URL from the browser. It returns
+only `{ id, title, urls }`, with hostnames in `urls`; matching uses registrable
+domains, including private suffixes:
+
+```js
+url = (await browser.tabs.list()).find(info => info.id === tab.id).url;
+logins = await listLogins({ url });
+say(logins);
+```
+
+Pick the login by exact title or an unambiguous host match; ask the orchestrator
+if ambiguous. Read a fresh snapshot
+and use its exact locator names. For example, after selecting `login` from
+`logins` and confirming these field names:
+
+```js
+await fillLogin({
+  username: tab.playwright.getByRole('textbox', { name: 'Username', exact: true }),
+  password: tab.playwright.getByRole('textbox', { name: 'Password', exact: true }),
+}, { item: login });
+```
+
+Either locator can be omitted for two-step pages. Submit using the page's
+button, then continue from a fresh snapshot. If the saved login has TOTP, use
+`await fillOtp(locator, { item: login })` with the current code-field locator.
+The fill helpers return only success flags; never read values out of the form
+or print them with `say`, `console`, implicit returns or any other output.
+They verify each field's own document URL against the saved login's domain
+before reading credentials and again before filling, and refuse non-HTTPS pages or mismatches.
+
+The helper defaults to `~/.config/op-agentes/token`, vault `Agentes`, and `op`
+from PATH or `~/.local/bin`. Overrides are `OP_AGENT_TOKEN_FILE`,
+`OP_AGENT_VAULT` and `OP_BIN`. It requires a token file with mode 0600 and passes
+the token only through the CLI's environment. If the token file is absent,
+follow the existing sign-in rules and ask the user to sign in. Stop on other
+credential-tool failures or missing logins; do not guess or retry refusals.
+
 ## Output boundary
 
 `say` redacts URL query values, fragments, credentials, obvious token strings

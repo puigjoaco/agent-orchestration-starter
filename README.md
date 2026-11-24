@@ -53,9 +53,12 @@ The main session supervises and owns the result.
 - [open_agent_chrome.py](skills/delegate-work/scripts/open_agent_chrome.py): open a named Chrome profile on Linux or macOS.
 - [agent-chrome.mjs](skills/delegate-work/scripts/agent-chrome.mjs): one-call Codex Chrome startup.
 - [chrome-output.mjs](skills/delegate-work/scripts/chrome-output.mjs): redact browser text and data at the output boundary. Best-effort tidying of what agents print, not a security boundary: unusual formats can slip through.
+- [op-login.mjs](skills/delegate-work/scripts/op-login.mjs): fill sign-in locators from a read-only 1Password agent vault without returning credentials.
+- [public_suffix_list.dat](skills/delegate-work/scripts/public_suffix_list.dat): pinned public-suffix rules for login domain matching; upstream revision and license are recorded in the file.
 - [test_open_agent_chrome.py](skills/delegate-work/tests/test_open_agent_chrome.py): isolated profile-launcher checks.
 - [agent-chrome.test.mjs](skills/delegate-work/tests/agent-chrome.test.mjs): startup, profile selection and grouping checks.
 - [chrome-output.test.mjs](skills/delegate-work/tests/chrome-output.test.mjs): redaction and runtime-wrapper checks.
+- [op-login.test.mjs](skills/delegate-work/tests/op-login.test.mjs): isolated CLI, credential-output and domain-matching checks.
 - [skills/review-fix-loop/](skills/review-fix-loop/SKILL.md): bounded review loop, reviewer routes and tree fingerprints.
 - [skills/full-send/](skills/full-send/SKILL.md): carry authorized work through publication and checks.
 - [skills/full-stop/](skills/full-stop/SKILL.md): prepare and verify a pull request, then leave it open and unmerged.
@@ -297,6 +300,38 @@ there as well. Open a new T3 thread afterwards; threads that are already open
 keep the old setup. Chrome's Codex connector works without the ChatGPT desktop
 app running.
 
+### 4. Optional: 1Password for agent sign-ins
+
+1. Create an agent vault, for example `Agentes`. Move, rather than copy, the
+   logins agents may use into it: each password lives once and edits sync
+   everywhere. Keep cards, banks, your main email and the 1Password login in
+   your private vault.
+2. In 1Password, open **Developer > Directory > Service account** and create
+   an account with **read items only**, limited to the agent vault. Service
+   accounts work on Individual plans and cannot access Personal/Private vaults.
+3. Install `op` from [1Password's official zip](https://developer.1password.com/docs/cli/get-started/)
+   and [verify its signature](https://developer.1password.com/docs/cli/verify-downloads/).
+   Check the signing-key fingerprint:
+   `3FEF 9748 469A DBE1 5DA7 CA80 AC2D 6274 2012 EA22`.
+   Alternatively, use 1Password's official apt repository. Put `op` on PATH or
+   in `~/.local/bin`.
+4. Save the service account token to `~/.config/op-agentes/token`, with directory
+   mode 0700 and file mode 0600. Use a local editor or a hidden-input prompt;
+   never paste the token into chat, shell history or repo files.
+5. Keep the 1Password browser extension out of the `Agent Use` profile, so the
+   browser worker cannot access the full account. Verify the restricted CLI
+   access without printing the token:
+
+   ```sh
+   OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/op-agentes/token)" op vault list
+   ```
+
+   The list must show only the agent vault.
+
+Chrome workers then use the [1Password sign-in helper](skills/delegate-work/references/chrome.md#signing-in-with-1password).
+The helper reads the token per call and sends values directly into form
+locators; credentials never become helper output. No extension is required.
+
 ### Opening the profile
 
 Open the Agent Use profile manually, or run the installed opener:
@@ -328,6 +363,8 @@ it may use them for signing in only, within your approval and the tool's rules.
 Otherwise it asks you to sign in. Passwords and codes go straight into forms,
 never chat, reports, briefs, files, commits or memory. Ambiguous accounts and
 tool refusals or failures stop the sign-in.
+
+For 1Password, follow [Chrome setup step 4](#4-optional-1password-for-agent-sign-ins).
 
 Agents complete simple human checks, such as a checkbox or press-and-hold, and
 never use CAPTCHA-solving services. Image, audio or puzzle challenges need you.
