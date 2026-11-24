@@ -8,14 +8,18 @@ import { domainToASCII } from 'node:url';
 // Only fixed messages cross the public boundary, including locator failures:
 // both op and Playwright errors can contain credentials or command output.
 class LoginError extends Error {}
-async function safe(action) {
+async function safe(action, stage) {
   try { return await action(); } catch (error) {
-    throw new Error(error instanceof LoginError ? error.message : '1Password sign-in failed; no credential details were returned.');
+    throw new Error(error instanceof LoginError ? error.message : `1Password sign-in failed while ${stage}; no credential details were returned.`);
   }
 }
 
+// node_repl modules have no process global. Keep overrides in ordinary Node,
+// and give op its required HOME when running with the restricted REPL globals.
+const runtimeEnv = () => typeof process === 'undefined' ? { HOME: homedir() } : process.env;
+
 async function tokenFromFile() {
-  const configured = process.env.OP_AGENT_TOKEN_FILE;
+  const configured = runtimeEnv().OP_AGENT_TOKEN_FILE;
   const path = configured?.startsWith('~/') ? join(homedir(), configured.slice(2))
     : configured || join(homedir(), '.config/op-agentes/token');
   let file;
@@ -39,8 +43,9 @@ async function runOp(args) {
   try {
     // Import lazily: some node_repl runtimes cannot spawn subprocesses.
     const { execFile } = await import('node:child_process');
-    return await new Promise((resolve, reject) => execFile(process.env.OP_BIN || 'op', args, {
-      env: { ...process.env, PATH: [process.env.PATH, join(homedir(), '.local/bin')].filter(Boolean).join(delimiter),
+    const env = runtimeEnv();
+    return await new Promise((resolve, reject) => execFile(env.OP_BIN || 'op', args, {
+      env: { ...env, PATH: [env.PATH, join(homedir(), '.local/bin')].filter(Boolean).join(delimiter),
         OP_SERVICE_ACCOUNT_TOKEN: token },
       timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
     }, (error, stdout, stderr) => {
@@ -59,7 +64,7 @@ async function runOp(args) {
   }
 }
 
-const vaultArgs = () => ['--vault', process.env.OP_AGENT_VAULT || 'Agentes'];
+const vaultArgs = () => ['--vault', runtimeEnv().OP_AGENT_VAULT || 'Agentes'];
 
 function hostname(value) {
   try {
@@ -145,7 +150,7 @@ export async function listLogins(options = {}) {
       }
     }
     return matches;
-  });
+  }, 'listing logins');
 }
 
 export async function fillLogin(locators, options = {}) {
@@ -167,7 +172,7 @@ export async function fillLogin(locators, options = {}) {
     if (username) { await verifyDestination(username, item); await username.fill(usernameValue); }
     if (password) { await verifyDestination(password, item); await password.fill(passwordValue); }
     return { filledUsername: Boolean(username), filledPassword: Boolean(password) };
-  });
+  }, 'filling login fields');
 }
 
 export async function fillOtp(locator, options = {}) {
@@ -180,5 +185,5 @@ export async function fillOtp(locator, options = {}) {
     await verifyDestination(locator, item);
     await locator.fill(otp);
     return { filledOtp: true };
-  });
+  }, 'filling a one-time password');
 }

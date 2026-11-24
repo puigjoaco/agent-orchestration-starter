@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { inspect } from 'node:util';
+import { inspect, promisify } from 'node:util';
 import { listLogins, fillLogin, fillOtp } from '../scripts/op-login.mjs';
 
 // Synthetic credentials only. The real CLI, token and vault are never used.
@@ -42,6 +43,7 @@ async function fixture(t) {
 import { readFileSync, appendFileSync } from 'node:fs';
 const data = JSON.parse(readFileSync(${JSON.stringify(dataFile)}, 'utf8'));
 const args = process.argv.slice(2);
+if (data.requiredHome && process.env.HOME !== data.requiredHome) process.exit(2);
 appendFileSync(${JSON.stringify(callsFile)}, JSON.stringify({ args,
   tokenMatches: process.env.OP_SERVICE_ACCOUNT_TOKEN === data.token }) + '\\n');
 if (data.error || (args[1] === 'get' && data.getError)) {
@@ -63,7 +65,6 @@ else if (args.includes('--otp')) {
   await writeFile(esmBin, await readFile(bin), { mode: 0o700 });
   // A shell-free executable named op is needed for PATH resolution checks.
   await rm(bin);
-  const { symlink } = await import('node:fs/promises');
   await symlink(esmBin, bin);
   const configure = async patch => {
     data = { ...data, ...patch };
@@ -97,6 +98,30 @@ test('lists only safe Login metadata; passes token via env and resolves op from 
   const calls = await f.calls();
   assert.ok(calls.every(call => call.tokenMatches));
   assert.deepEqual(calls[0].args, ['item', 'list', '--vault', 'TestVault', '--categories', 'Login', '--format', 'json']);
+  assertSafe(calls);
+});
+
+test('lists logins without a process global, using HOME and the local op executable', async t => {
+  const f = await fixture(t);
+  const home = join(f.dir, 'home');
+  await mkdir(join(home, '.config/op-agentes'), { recursive: true });
+  await mkdir(join(home, '.local/bin'), { recursive: true });
+  await writeFile(join(home, '.config/op-agentes/token'), secrets.token, { mode: 0o600 });
+  await symlink(f.bin, join(home, '.local/bin/op'));
+  await f.configure({ items: [], requiredHome: home });
+  const moduleUrl = new URL('../scripts/op-login.mjs', import.meta.url).href;
+  const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', `
+    globalThis.process = undefined;
+    const { listLogins } = await import(${JSON.stringify(moduleUrl)});
+    console.log(JSON.stringify([
+      await listLogins(),
+      await listLogins({ url: 'https://misiir.sii.cl/cgi_misii/siihome.cgi' }),
+    ]));
+  `], { env: { HOME: home }, timeout: 15000 });
+  assert.deepEqual(JSON.parse(stdout), [[], []]);
+  const calls = await f.calls();
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(call => call.tokenMatches && call.args.includes('Agentes')));
   assertSafe(calls);
 });
 
