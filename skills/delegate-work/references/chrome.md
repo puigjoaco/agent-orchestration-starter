@@ -16,15 +16,22 @@ Import in the next call, then run startup alone in another call:
 
 ```js
 ({ agent, browser, tab, say, redact, timings, nodeRepl: chromeRepl } = await startAgentChrome({
-  url: 'https://example.org', sessionName: 'Research task',
+  url: 'https://example.org', sessionName: '<thread title>',
 }));
 ```
 
 `chromeRepl` is the redacting wrapper; keep the runtime global intact.
-Use a URL from the brief. Pass the session name the brief gives as `sessionName`,
-unchanged: it titles the Chrome tab group, and in T3 it is the title of the
-thread that asked for the work, so the user can tell which thread owns each
-group. Only when the brief gives none, use a short task name.
+Use a URL from the brief. For `sessionName`, first run this in the shell and pass
+its output unchanged:
+
+```sh
+python3 ~/.agents/skills/delegate-work/scripts/t3_thread_title.py
+```
+
+It prints the title of the T3 thread the user is working in, so the Chrome tab
+group shows which thread owns it. Only when it prints nothing (outside T3), use
+a short task name.
+
 A throwing call keeps no new declarations; initialize
 `var x = null;` in one call and assign it in another. Do not hide bindings inside
 `try` blocks or combine startup with later actions that may fail.
@@ -171,7 +178,7 @@ For an assigned existing tab, set up the plugin runtime without calling
 import pattern in the quick start. Select the returned
 Chrome extension browser by its exact `profileName`, then use its returned ID
 with `agent.browsers.get`. Name the session with `browser.nameSession`, using
-the brief's session name, before claiming anything.
+the quick start's session name, before claiming anything.
 
 Scan `browser.user.openTabs()` only for the task's assigned tabs. Match the
 exact title and URL, then pass that returned object to `browser.user.claimTab`.

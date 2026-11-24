@@ -230,12 +230,8 @@ error). Collaborative previews do not inherit Chrome logins.
 
 For real Chrome, existing user tabs or a Chrome request, use the Chrome worker
 in the role table and include `Use @Chrome; first read` plus the installed
-delegate-work `references/chrome.md` path in its brief. Also give it the title
-of the thread the user is working in as the Chrome session name, so the Chrome
-tab group carries that thread's name: `t3_thread_search` returns your
-`currentThreadId` and `t3_thread_read` on it returns `title`. A child passes on
-the name from its own brief. Follow that reference's startup, profile, session
-naming, redaction and tab ownership rules. If a Codex child reports
+delegate-work `references/chrome.md` path in its brief. Follow that reference's
+startup, profile, redaction and tab ownership rules. If a Codex child reports
 `@Chrome` or `node_repl` missing, T3's Codex home lacks the user's Codex setup.
 Follow step 3 of the README's Chrome setup: read `homePath` from T3's settings,
 copy only the listed sections into T3's own `config.toml` (never print or copy
