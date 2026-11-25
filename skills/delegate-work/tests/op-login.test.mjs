@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { inspect, promisify } from 'node:util';
-import { listLogins, fillLogin, fillOtp } from '../scripts/op-login.mjs';
+import { listLogins, fillLogin, fillOtp, openLogin } from '../scripts/op-login.mjs';
 
 // Synthetic credentials only. The real CLI, token and vault are never used.
 const secrets = { token: 'synthetic-service-token', username: 'synthetic-user@example.invalid',
@@ -323,4 +323,33 @@ test('refuses unresolved field URLs and strips locator evaluation errors', async
     await safeFailure(() => fillOtp(locator, { item: 'login-one' }), /Cannot verify/);
   }
   assert.ok((await f.calls()).every(call => call.args[1] === 'list'));
+});
+
+test('opens the saved sign-in address without returning it or its embedded credentials', async t => {
+  const f = await fixture(t);
+  await f.configure({ items: [{ ...login('login-one', 'Example login', []), urls: [
+    { href: 'https://other.example.com/' },
+    { href: 'https://account:synthetic-password-value@accounts.example.com/login?next=home', primary: true },
+  ] }] });
+  const opened = [];
+  const result = await openLogin({ goto: async url => opened.push(url) }, { item: 'Example login' });
+  assert.deepEqual(opened, ['https://accounts.example.com/login?next=home']);
+  assert.deepEqual(result, { opened: true, host: 'accounts.example.com' });
+  assertSafe(result);
+  assert.ok((await f.calls()).every(call => call.args[1] === 'list'));
+  assert.deepEqual(await listLogins(), [{ id: 'login-one', title: 'Example login', urls: ['other.example.com', 'accounts.example.com'] }]);
+});
+
+test('refuses to open a login without an HTTPS address and scrubs navigation errors', async t => {
+  const f = await fixture(t);
+  const tab = { goto: async () => assert.fail('must not navigate') };
+  await safeFailure(() => openLogin(tab, { item: 'missing' }), /not found/);
+  await safeFailure(() => openLogin({}, { item: 'Example login' }), /goto method/);
+  await f.configure({ items: [login('login-one', 'Example login', ['http://example.com/sign-in'])] });
+  await safeFailure(() => openLogin(tab, { item: 'Example login' }), /no HTTPS address/);
+  await f.configure({ items: [login('login-one', 'Example login', [])] });
+  await safeFailure(() => openLogin(tab, { item: 'Example login' }), /no HTTPS address/);
+  await f.configure({ items: [login('login-one', 'Example login', ['https://example.com/sign-in'])] });
+  await safeFailure(() => openLogin({ goto: async () => { throw new Error(secrets.password); } }, { item: 'Example login' }),
+    /opening the sign-in page/);
 });

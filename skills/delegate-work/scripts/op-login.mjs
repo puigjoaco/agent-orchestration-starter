@@ -100,21 +100,23 @@ async function registrableDomain(host) {
   return labels.slice(-suffixLength - 1).join('.');
 }
 
-async function loginItems() {
+async function loginItems({ addresses = false } = {}) {
   const rows = JSON.parse(await runOp(['item', 'list', ...vaultArgs(), '--categories', 'Login', '--format', 'json']));
   if (!Array.isArray(rows)) throw new LoginError('1Password CLI returned an invalid item list.');
   return rows.filter(row => row.category === 'LOGIN').map(row => {
     if (typeof row.id !== 'string' || !/^[a-z\d][a-z\d_-]*$/i.test(row.id) || typeof row.title !== 'string')
       throw new LoginError('1Password CLI returned invalid login metadata.');
-    return { id: row.id, title: row.title,
-      urls: [...new Set((row.urls || []).map(url => hostname(url.href)).filter(Boolean))] };
+    const saved = (row.urls || []).filter(url => hostname(url.href));
+    const item = { id: row.id, title: row.title, urls: [...new Set(saved.map(url => hostname(url.href)))] };
+    // Only openLogin reads the saved address; it never crosses the public boundary.
+    return addresses ? { ...item, address: (saved.find(url => url.primary) || saved[0])?.href } : item;
   });
 }
 
-async function selectedItem(item) {
+async function selectedItem(item, options) {
   const key = typeof item === 'string' ? item : item?.id;
   if (typeof key !== 'string' || !key) throw new LoginError('Choose a 1Password login by exact title or item ID.');
-  const matches = (await loginItems()).filter(row => row.id === key || (typeof item === 'string' && row.title === key));
+  const matches = (await loginItems(options)).filter(row => row.id === key || (typeof item === 'string' && row.title === key));
   if (!matches.length) throw new LoginError('1Password item was not found in the agent vault.');
   if (matches.length !== 1) throw new LoginError('Multiple 1Password items match; choose an exact item ID.');
   return matches[0];
@@ -151,6 +153,19 @@ export async function listLogins(options = {}) {
     }
     return matches;
   }, 'listing logins');
+}
+
+export async function openLogin(tab, options = {}) {
+  return safe(async () => {
+    if (typeof tab?.goto !== 'function') throw new LoginError('Provide a tab with a goto method.');
+    const item = await selectedItem(options.item, { addresses: true });
+    let address = null;
+    try { address = new URL(item.address); } catch { /* reported below */ }
+    if (address?.protocol !== 'https:') throw new LoginError('The selected 1Password login has no HTTPS address to open.');
+    address.username = address.password = '';
+    await tab.goto(address.href);
+    return { opened: true, host: address.hostname };
+  }, 'opening the sign-in page');
 }
 
 export async function fillLogin(locators, options = {}) {

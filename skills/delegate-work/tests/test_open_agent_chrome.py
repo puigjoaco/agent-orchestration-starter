@@ -31,6 +31,7 @@ class OpenAgentChromeTest(unittest.TestCase):
         shim.chmod(0o755)
         self.env = dict(os.environ, HOME=str(self.home), PATH=f"{self.bin}{os.pathsep}{os.environ['PATH']}")
         self.env.pop("CODEX_SANDBOX_NETWORK_DISABLED", None)
+        self.env["DISPLAY"] = ":0"  # a desktop session: Chrome is started directly
 
     def write_state(self, profiles, platform="linux"):
         path = self.home / (".config/google-chrome" if platform == "linux" else "Library/Application Support/Google/Chrome") / "Local State"
@@ -85,6 +86,23 @@ class OpenAgentChromeTest(unittest.TestCase):
         self.assertEqual(self.run_script("--print-dir").stdout, "Profile 1\n")
         time.sleep(0.2)
         self.assertFalse(self.log.exists())
+
+    @unittest.skipIf(sys.platform == "darwin", "Linux session manager")
+    def test_without_a_display_chrome_starts_through_the_session_manager(self):
+        self.write_state({"Default": "Personal", "Profile 1": "Agent Use"})
+        runner = self.bin / "systemd-run"
+        runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$XDG_RUNTIME_DIR" "$@" > "{self.log}"\n')
+        runner.chmod(0o755)
+        for name in ("DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR"):
+            self.env.pop(name, None)
+        result = self.run_script()
+        self.assertEqual((result.returncode, result.stdout), (0, "opened Profile 1\n"), result.stderr)
+        self.assertEqual(self.wait_for_log(), [f"/run/user/{os.getuid()}", "--user", "--collect", "--quiet", "--",
+                                               str(self.bin / "google-chrome"), "--profile-directory=Profile 1"])
+        runner.write_text("#!/bin/sh\nexit 1\n")
+        result = self.run_script()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("can't start Chrome", result.stderr)
 
     def test_unreadable_local_state_exits_one(self):
         result = self.run_script()

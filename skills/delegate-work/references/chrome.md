@@ -77,9 +77,10 @@ another profile. Existing session groups are left alone; grouping failures are
 reported without stopping startup.
 
 A profile's extension connects only while that profile has a window open. The
-helper opens that window if needed and waits up to a minute; a cold Chrome can
-take 30 seconds to connect. If spawning is unavailable, run this in the shell,
-then call startup again:
+helper opens that window if needed, through the user's systemd manager when its
+own process lacks the desktop session, and waits up to a minute; a cold Chrome
+can take 30 seconds to connect. If spawning is unavailable, run this in the
+shell, then call startup again:
 
 ```sh
 python3 ~/.agents/skills/delegate-work/scripts/open_agent_chrome.py
@@ -119,14 +120,18 @@ only when no login matches, several match, or the helper refuses. Declare
 bindings in one call:
 
 ```js
-var listLogins = null, fillLogin = null, fillOtp = null, logins = null, login = null, url = null;
+var listLogins = null, fillLogin = null, fillOtp = null, openLogin = null, logins = null, login = null, url = null;
 ```
 
 Import in a separate call:
 
 ```js
-({ listLogins, fillLogin, fillOtp } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/op-login.mjs'));
+({ listLogins, fillLogin, fillOtp, openLogin } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/op-login.mjs'));
 ```
+
+When the brief names a saved login, open its sign-in page with
+`await openLogin(tab, { item: 'Exact title' })` and work from there; never search
+for a site or guess its address. Start Chrome without a `url` in that case.
 
 Call `listLogins({ url })` with the current page URL from the browser. It returns
 only `{ id, title, urls }`, with hostnames in `urls`; matching uses registrable
