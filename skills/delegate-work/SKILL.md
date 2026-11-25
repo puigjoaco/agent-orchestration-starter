@@ -56,7 +56,10 @@ Use bounded diagnostic reads and completion notifications rather than a polling 
 
 Outside T3, send corrections, additions and review findings to the worker that wrote the code: SendMessage for Claude, or a new stdin brief with `codex exec resume <session-id>` for Codex. Keep its workspace, model, effort and sandbox. Give only the follow-up and needed context. Start fresh for a different task or area. Reviewers and advisors always start fresh; never resume them. In T3, follow the
 reference and use a new `delegate_task` with the prior results and corrections;
-do not send a continuation to the backing child thread.
+do not send a continuation to the backing child thread. Exception: a page a
+Chrome worker left open belongs to that worker, and a new worker is refused the
+tab. To continue on that page, send the follow-up to the same child thread with
+`t3_thread_send`.
 
 ## Parallel work
 

@@ -53,6 +53,10 @@ await tab.playwright.getByRole('button', { name: 'Name from snapshot', exact: tr
 say(await tab.playwright.domSnapshot());
 ```
 
+If a role locator finds nothing for something the snapshot shows, the page hides
+it from accessibility: use `tab.playwright.getByText('Text', { exact: true })` or a
+CSS `tab.playwright.locator('selector')` before reporting a blocker.
+
 Use `say(value)` for all text/data output, including URLs, tab lists and errors.
 Never print handles or form values. Close only tabs you created:
 
