@@ -8,9 +8,7 @@ var startAgentChrome = null;
 var agent = null, browser = null, tab = null, say = null, redact = null, timings = null, chromeRepl = null;
 ```
 
-Import in the next call, then run startup alone in another call. Give that call
-`timeout_ms: 90000`: the helper can wait a minute for Chrome, past the tool's
-30-second default:
+Import in the next call, then run startup alone in another call:
 
 ```js
 ({ startAgentChrome } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/agent-chrome.mjs'));
@@ -62,12 +60,6 @@ Never print handles or form values. Close only tabs you created:
 await tab.close();
 ```
 
-When the user must act on the page, pass `forUser: true` to `startAgentChrome`;
-the plugin closes other tabs when the turn ends. Do the whole flow in one turn
-and stop before the user's step. The tab stays in the background: report its
-title and tab group, never that it is in front. A later turn on that page calls
-`await tab.markHandoff()` before it ends.
-
 ## Connection and setup
 
 The helper installs redaction, selects only the requested Chrome extension
@@ -77,10 +69,8 @@ another profile. Existing session groups are left alone; grouping failures are
 reported without stopping startup.
 
 A profile's extension connects only while that profile has a window open. The
-helper opens that window if needed, through the user's systemd manager when its
-own process lacks the desktop session, and waits up to a minute; a cold Chrome
-can take 30 seconds to connect. If spawning is unavailable, run this in the
-shell, then call startup again:
+helper opens that window if needed and waits briefly for connection. If spawning
+is unavailable, run this in the shell, then call startup again:
 
 ```sh
 python3 ~/.agents/skills/delegate-work/scripts/open_agent_chrome.py
@@ -90,8 +80,6 @@ Use `--name 'Custom profile'` to choose a name or `--print-dir` to inspect its
 directory without opening Chrome. A missing or duplicate name exits 2: create
 or select the agent profile, rather than guessing. The opener supports Linux
 (`google-chrome`) and macOS (`Google Chrome`). It never closes or restarts Chrome.
-In a sandboxed Codex session on Linux it exits 3 without starting Chrome, which
-would crash there: stop and ask the orchestrator to run it from its own shell.
 
 The default Codex plugin module is
 `~/.codex/plugins/cache/openai-bundled/chrome/latest/scripts/browser-client.mjs`.
@@ -120,18 +108,14 @@ only when no login matches, several match, or the helper refuses. Declare
 bindings in one call:
 
 ```js
-var listLogins = null, fillLogin = null, fillOtp = null, openLogin = null, logins = null, login = null, url = null;
+var listLogins = null, fillLogin = null, fillOtp = null, logins = null, login = null, url = null;
 ```
 
 Import in a separate call:
 
 ```js
-({ listLogins, fillLogin, fillOtp, openLogin } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/op-login.mjs'));
+({ listLogins, fillLogin, fillOtp } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/op-login.mjs'));
 ```
-
-When the brief names a saved login, open its sign-in page with
-`await openLogin(tab, { item: 'Exact title' })` and work from there; never search
-for a site or guess its address. Start Chrome without a `url` in that case.
 
 Call `listLogins({ url })` with the current page URL from the browser. It returns
 only `{ id, title, urls }`, with hostnames in `urls`; matching uses registrable

@@ -9,14 +9,11 @@ holds other data that must not be printed.
 
 import argparse
 import json
-import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
 DEFAULT_NAME = "Agent Use"
-SANDBOX_EXIT = 3  # agent-chrome.mjs reads this exit code
 
 
 def local_state_path(platform: str = sys.platform) -> Path:
@@ -43,22 +40,6 @@ def open_command(directory: str, platform: str = sys.platform) -> list:
     return ["google-chrome", f"--profile-directory={directory}"]
 
 
-def session_command(command: list, env: dict, platform: str = sys.platform):
-    """Return (command, env) that start Chrome through the user's systemd manager, or None.
-
-    Tool processes such as Codex's node_repl run without the desktop session's
-    environment. When no Chrome is running yet, a Chrome started there cannot
-    reach the display and exits silently. The systemd user manager has that
-    environment, so the command is handed to it.
-    """
-    runner = shutil.which("systemd-run", path=env.get("PATH"))
-    if platform == "darwin" or env.get("WAYLAND_DISPLAY") or env.get("DISPLAY") or not runner:
-        return None
-    chrome = shutil.which(command[0], path=env.get("PATH")) or command[0]
-    return ([runner, "--user", "--collect", "--quiet", "--", chrome, *command[1:]],
-            {"XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}", **env})
-
-
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--name", default=DEFAULT_NAME, help="profile name (default: %(default)s)")
@@ -75,21 +56,11 @@ def main(argv=None) -> int:
     if args.print_dir:
         print(directory)
         return 0
-    if sys.platform != "darwin" and os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED"):
-        # Chrome started inside Codex's Linux sandbox crashes on launch.
-        print("this session is sandboxed and cannot start Chrome; ask the orchestrator to run this command from its own shell",
-              file=sys.stderr)
-        return SANDBOX_EXIT
-    command = open_command(directory)
-    quiet = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-    session = session_command(command, dict(os.environ))
     try:
-        if session:
-            subprocess.run(session[0], env=session[1], check=True, timeout=10, **quiet)
-        else:
-            subprocess.Popen(command, start_new_session=True, **quiet)
-    except (OSError, subprocess.SubprocessError) as error:
-        print(f"can't start Chrome: {type(error).__name__}", file=sys.stderr)
+        subprocess.Popen(open_command(directory), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError as error:
+        print(f"can't start Chrome: {error}", file=sys.stderr)
         return 1
     print(f"opened {directory}")
     return 0
