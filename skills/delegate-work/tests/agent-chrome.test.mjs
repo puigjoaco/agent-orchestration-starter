@@ -9,10 +9,14 @@ const otherProfiles = [
   { ...agentProfile, id: 'edge', family: 'edge' },
 ];
 
-function fixture({ lists = [[...otherProfiles, agentProfile]], grouped = false, groupFails = false, openFails = false } = {}) {
+function fixture({ lists = [[...otherProfiles, agentProfile]], grouped = false, groupFails = false, openFails = false, openError, handoffFails = false } = {}) {
   let clock = 0, calls = 0;
   const events = [], output = [];
-  const tab = { id: 'opaque-tab', goto: async url => events.push(['goto', url]) };
+  const tab = {
+    id: 'opaque-tab',
+    goto: async url => events.push(['goto', url]),
+    markHandoff: async () => { if (handoffFails) throw new Error('lease refused'); events.push(['handoff']); },
+  };
   const management = {
     tabs: {
       query: async () => [{ id: 42, groupId: grouped ? 7 : -1, url: 'about:blank', title: 'New Tab' }],
@@ -42,6 +46,7 @@ function fixture({ lists = [[...otherProfiles, agentProfile]], grouped = false, 
     loadRuntime: async () => ({ setupBrowserRuntime: async () => agent }),
     open: async profile => {
       events.push(['open', profile]);
+      if (openError) throw openError;
       if (openFails) throw new Error('Run the profile opener from the shell');
     },
     now: () => ++clock,
@@ -112,4 +117,26 @@ test('grouping warning cannot fail startup even when the caller logger throws', 
   const f = fixture({ groupFails: true });
   const result = await f.start({ sessionName: 'Test', log: () => { throw new Error('logger failed'); } });
   assert.equal(result.tab, f.tab);
+});
+
+test('forUser marks the new tab as handed off before navigating', async () => {
+  const f = fixture({ grouped: true });
+  const result = await f.start({ url: 'https://example.com', sessionName: 'Test', forUser: true });
+  assert.deepEqual(f.events, [['get', 'agents'], ['session', 'Test'], ['new'], ['handoff'], ['goto', 'https://example.com']]);
+  assert.ok(result.timings.handoff >= 0);
+});
+
+test('handoff refusal is reported without stopping startup', async () => {
+  const f = fixture({ grouped: true, handoffFails: true });
+  const logged = [];
+  const result = await f.start({ sessionName: 'Test', forUser: true, log: value => logged.push(value) });
+  assert.equal(result.tab, f.tab);
+  assert.match(logged[0], /markHandoff/);
+});
+
+test('sandboxed opener exit sends the worker to the orchestrator without subprocess details', async () => {
+  const f = fixture({ lists: [otherProfiles], openError: Object.assign(new Error('private subprocess output'), { code: 3 }) });
+  await assert.rejects(f.start({ sessionName: 'Test' }),
+    error => /sandboxed session.*ask the orchestrator/.test(error.message) && !error.message.includes('private'));
+  assert.deepEqual(f.events, [['open', 'Agent Use']]);
 });

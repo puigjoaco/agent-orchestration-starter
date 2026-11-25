@@ -8,7 +8,9 @@ var startAgentChrome = null;
 var agent = null, browser = null, tab = null, say = null, redact = null, timings = null, chromeRepl = null;
 ```
 
-Import in the next call, then run startup alone in another call:
+Import in the next call, then run startup alone in another call. Give that call
+`timeout_ms: 90000`: the helper can wait a minute for Chrome, past the tool's
+30-second default:
 
 ```js
 ({ startAgentChrome } = await import((await import('node:os')).homedir() + '/.agents/skills/delegate-work/scripts/agent-chrome.mjs'));
@@ -60,6 +62,12 @@ Never print handles or form values. Close only tabs you created:
 await tab.close();
 ```
 
+When the user must act on the page, pass `forUser: true` to `startAgentChrome`;
+the plugin closes other tabs when the turn ends. Do the whole flow in one turn
+and stop before the user's step. The tab stays in the background: report its
+title and tab group, never that it is in front. A later turn on that page calls
+`await tab.markHandoff()` before it ends.
+
 ## Connection and setup
 
 The helper installs redaction, selects only the requested Chrome extension
@@ -69,8 +77,9 @@ another profile. Existing session groups are left alone; grouping failures are
 reported without stopping startup.
 
 A profile's extension connects only while that profile has a window open. The
-helper opens that window if needed and waits briefly for connection. If spawning
-is unavailable, run this in the shell, then call startup again:
+helper opens that window if needed and waits up to a minute; a cold Chrome can
+take 30 seconds to connect. If spawning is unavailable, run this in the shell,
+then call startup again:
 
 ```sh
 python3 ~/.agents/skills/delegate-work/scripts/open_agent_chrome.py
@@ -80,6 +89,8 @@ Use `--name 'Custom profile'` to choose a name or `--print-dir` to inspect its
 directory without opening Chrome. A missing or duplicate name exits 2: create
 or select the agent profile, rather than guessing. The opener supports Linux
 (`google-chrome`) and macOS (`Google Chrome`). It never closes or restarts Chrome.
+In a sandboxed Codex session on Linux it exits 3 without starting Chrome, which
+would crash there: stop and ask the orchestrator to run it from its own shell.
 
 The default Codex plugin module is
 `~/.codex/plugins/cache/openai-bundled/chrome/latest/scripts/browser-client.mjs`.

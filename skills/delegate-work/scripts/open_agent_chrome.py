@@ -9,11 +9,13 @@ holds other data that must not be printed.
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 
 DEFAULT_NAME = "Agent Use"
+SANDBOX_EXIT = 3  # agent-chrome.mjs reads this exit code
 
 
 def local_state_path(platform: str = sys.platform) -> Path:
@@ -56,6 +58,11 @@ def main(argv=None) -> int:
     if args.print_dir:
         print(directory)
         return 0
+    if sys.platform != "darwin" and os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED"):
+        # Chrome started inside Codex's Linux sandbox crashes on launch.
+        print("this session is sandboxed and cannot start Chrome; ask the orchestrator to run this command from its own shell",
+              file=sys.stderr)
+        return SANDBOX_EXIT
     try:
         subprocess.Popen(open_command(directory), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)

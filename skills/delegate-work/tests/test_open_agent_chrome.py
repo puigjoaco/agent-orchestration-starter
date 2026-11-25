@@ -30,6 +30,7 @@ class OpenAgentChromeTest(unittest.TestCase):
         shim.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{self.log}"\n')
         shim.chmod(0o755)
         self.env = dict(os.environ, HOME=str(self.home), PATH=f"{self.bin}{os.pathsep}{os.environ['PATH']}")
+        self.env.pop("CODEX_SANDBOX_NETWORK_DISABLED", None)
 
     def write_state(self, profiles, platform="linux"):
         path = self.home / (".config/google-chrome" if platform == "linux" else "Library/Application Support/Google/Chrome") / "Local State"
@@ -72,6 +73,17 @@ class OpenAgentChromeTest(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("create or select the agent profile", result.stderr)
             self.assertNotIn(SECRET, result.stdout + result.stderr)
+        self.assertFalse(self.log.exists())
+
+    @unittest.skipIf(sys.platform == "darwin", "Linux sandbox")
+    def test_sandboxed_session_refuses_to_launch(self):
+        self.write_state({"Default": "Personal", "Profile 1": "Agent Use"})
+        self.env["CODEX_SANDBOX_NETWORK_DISABLED"] = "1"
+        result = self.run_script()
+        self.assertEqual(result.returncode, oac.SANDBOX_EXIT)
+        self.assertIn("ask the orchestrator", result.stderr)
+        self.assertEqual(self.run_script("--print-dir").stdout, "Profile 1\n")
+        time.sleep(0.2)
         self.assertFalse(self.log.exists())
 
     def test_unreadable_local_state_exits_one(self):

@@ -5,17 +5,16 @@ import { installChromeRedaction, redact } from './chrome-output.mjs';
 
 const opener = fileURLToPath(new URL('./open_agent_chrome.py', import.meta.url));
 const MANUAL_OPEN = 'Chrome profile is not connected. Run python3 ~/.agents/skills/delegate-work/scripts/open_agent_chrome.py (with --name for a custom profile), then call startAgentChrome again.';
+const SANDBOXED = 'Chrome profile is not connected and this sandboxed session cannot start Chrome. Stop and ask the orchestrator to run python3 ~/.agents/skills/delegate-work/scripts/open_agent_chrome.py from its own shell (with --name for a custom profile).';
+const SANDBOX_EXIT = 3; // open_agent_chrome.py's exit code for a sandboxed session
 
 async function openProfile(profile) {
-  try {
-    // Dynamic import: some node_repl runtimes forbid child_process. No shell,
-    // and no subprocess output/errors cross the public boundary.
-    const { execFile } = await import('node:child_process');
-    await new Promise((resolve, reject) => execFile('python3', [opener, '--name', profile],
-      { timeout: 10000, maxBuffer: 16384 }, error => error ? reject(error) : resolve()));
-  } catch {
-    throw new Error(MANUAL_OPEN);
-  }
+  // Dynamic import: some node_repl runtimes forbid child_process. No shell. The
+  // starter replaces any failure with a fixed message, so no subprocess output
+  // or error crosses the public boundary.
+  const { execFile } = await import('node:child_process');
+  await new Promise((resolve, reject) => execFile('python3', [opener, '--name', profile],
+    { timeout: 10000, maxBuffer: 16384 }, error => error ? reject(error) : resolve()));
 }
 
 async function groupNewTab(browser, tab, sessionName, say) {
@@ -41,8 +40,8 @@ async function groupNewTab(browser, tab, sessionName, say) {
 // a process. The normal entrypoint below always uses the real runtime.
 export function createAgentChromeStarter({ runtime = () => globalThis.nodeRepl,
   loadRuntime = () => import(`${homedir()}/.codex/plugins/cache/openai-bundled/chrome/latest/scripts/browser-client.mjs`),
-  open = openProfile, wait = delay, now = () => performance.now(), pollTimeoutMs = 10000 } = {}) {
-  return async function startAgentChrome({ url, sessionName, profile = 'Agent Use', log } = {}) {
+  open = openProfile, wait = delay, now = () => performance.now(), pollTimeoutMs = 60000 } = {}) {
+  return async function startAgentChrome({ url, sessionName, profile = 'Agent Use', forUser = false, log } = {}) {
     if (typeof sessionName !== 'string' || !sessionName.trim() || typeof profile !== 'string' || !profile.trim())
       throw new Error('Provide a sessionName and a Chrome profile name.');
     const timings = {};
@@ -60,7 +59,7 @@ export function createAgentChromeStarter({ runtime = () => globalThis.nodeRepl,
     timings.connect = 0;
     if (!info) {
       await phase('openProfile', async () => {
-        try { await open(profile); } catch { throw new Error(MANUAL_OPEN); }
+        try { await open(profile); } catch (error) { throw new Error(error?.code === SANDBOX_EXIT ? SANDBOXED : MANUAL_OPEN); }
       });
       info = await phase('connect', async () => {
         const deadline = now() + pollTimeoutMs;
@@ -77,6 +76,14 @@ export function createAgentChromeStarter({ runtime = () => globalThis.nodeRepl,
     const browser = await phase('browser', () => agent.browsers.get(info.id));
     await phase('session', () => browser.nameSession(sessionName));
     const tab = await phase('tab', () => browser.tabs.new());
+    // The plugin closes unmarked tabs when the turn ends. A page the user must
+    // act on is marked as handed off, so it stays open, in the background: the
+    // plugin can neither select a tab nor raise its window.
+    if (forUser) await phase('handoff', async () => {
+      try { await tab.markHandoff(); } catch {
+        try { say('Could not keep this tab open for the user; call tab.markHandoff() before the turn ends.'); } catch { /* best effort reporting */ }
+      }
+    });
     await phase('group', () => groupNewTab(browser, tab, sessionName, say));
     await phase('navigate', async () => { if (url !== undefined) await tab.goto(url); });
     timings.total = Math.max(0, now() - started);
