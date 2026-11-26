@@ -266,8 +266,7 @@ authorized work still waits on checks/reviews, after needed updates and pushes.
 Follow its continuation and end the turn; no polling, `gh --watch`, monitoring
 workers or scheduled wakeups. Children return status to the parent and never
 watch PRs. Before final handback or a user decision, call `unwatch_pull_request`
-for watched PRs. Follow full-stop's no-merge protections and full-send's merge
-gate; watching does not authorize merging.
+for watched PRs. Watching does not authorize merging.
 After PR work, a child's final line is:
 `PR <full URL>, head <SHA>, checks and reviews <state>.`
 

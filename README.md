@@ -53,16 +53,10 @@ The main session supervises and owns the result.
 - [open_agent_chrome.py](skills/delegate-work/scripts/open_agent_chrome.py): open a named Chrome profile on Linux or macOS.
 - [agent-chrome.mjs](skills/delegate-work/scripts/agent-chrome.mjs): one-call Codex Chrome startup.
 - [chrome-output.mjs](skills/delegate-work/scripts/chrome-output.mjs): redact browser text and data at the output boundary. Best-effort tidying of what agents print, not a security boundary: unusual formats can slip through.
-- [op-login.mjs](skills/delegate-work/scripts/op-login.mjs): fill sign-in locators from a read-only 1Password agent vault without returning credentials.
-- [public_suffix_list.dat](skills/delegate-work/scripts/public_suffix_list.dat): pinned public-suffix rules for login domain matching; upstream revision and license are recorded in the file.
 - [test_open_agent_chrome.py](skills/delegate-work/tests/test_open_agent_chrome.py): isolated profile-launcher checks.
 - [agent-chrome.test.mjs](skills/delegate-work/tests/agent-chrome.test.mjs): startup, profile selection and grouping checks.
 - [chrome-output.test.mjs](skills/delegate-work/tests/chrome-output.test.mjs): redaction and runtime-wrapper checks.
-- [op-login.test.mjs](skills/delegate-work/tests/op-login.test.mjs): isolated CLI, credential-output and domain-matching checks.
 - [skills/review-fix-loop/](skills/review-fix-loop/SKILL.md): bounded review loop, reviewer routes and tree fingerprints.
-- [skills/full-send/](skills/full-send/SKILL.md): carry authorized work through publication and checks.
-- [skills/full-stop/](skills/full-stop/SKILL.md): prepare and verify a pull request, then leave it open and unmerged.
-- [skills/babysit-pr/](skills/babysit-pr/SKILL.md): watch a pull request and handle actionable failures.
 - [bin/heavy](bin/heavy): optional gate for finite resource-intensive commands.
 - [background_job_guard.py](hooks/background_job_guard.py): Claude Bash detachment check.
 - [orchestration_mode.py](hooks/orchestration_mode.py): configured setup at session start.
@@ -72,7 +66,6 @@ The main session supervises and owns the result.
 - Hook regressions: [background jobs](hooks/tests/test_background_job_guard.py), [setup selection](hooks/tests/test_orchestration_mode.py), [sign-in handoffs](hooks/tests/test_signin_handoff_check.py).
 - [install.sh](install.sh): symlink installer; [tests/](tests/test_install.py): isolated installer checks.
 - [LICENSE](LICENSE): MIT license for this repo.
-- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): attribution and upstream license text.
 - [.gitignore](.gitignore): local generated files.
 
 ## Install
@@ -185,7 +178,7 @@ for checks. Link created, taken-over or pushed PRs with `link_pull_request`
 (`pull_request_create` links automatically). The orchestrator uses
 `watch_pull_request` while authorized work waits on checks or reviews, then
 `unwatch_pull_request` before final handback. Children report status without
-watching. Full-stop still never merges, and full-send keeps its merge gate.
+watching. Watching never authorizes merging.
 
 For requested browser work, collaborative `preview_*` tools handle local apps
 and public pages; they do not inherit your Chrome logins. Real Chrome and
@@ -300,44 +293,6 @@ there as well. Open a new T3 thread afterwards; threads that are already open
 keep the old setup. Chrome's Codex connector works without the ChatGPT desktop
 app running.
 
-### 4. Optional: 1Password for agent sign-ins
-
-1. Create an agent vault, for example `Agentes`. Move, rather than copy, the
-   logins agents may use into it: each password lives once and edits sync
-   everywhere. The built-in Personal/Private vault can never be shared with a
-   service account, so logins left there stay invisible to agents. To move
-   many at once in 1Password, filter the private vault to the Login category,
-   select all and move them; cards, documents and notes are other categories
-   and stay behind. Then move back any logins you want to keep from agents
-   (for example banks, your main email and the 1Password login). Agents match
-   logins by website, so give each moved login its site URL.
-2. In 1Password, open **Developer > Directory > Service account** and create
-   an account with **read items only**, limited to the agent vault. Service
-   accounts work on Individual plans and cannot access Personal/Private vaults.
-3. Install `op` from [1Password's official zip](https://developer.1password.com/docs/cli/get-started/)
-   and [verify its signature](https://developer.1password.com/docs/cli/verify-downloads/).
-   Check the signing-key fingerprint:
-   `3FEF 9748 469A DBE1 5DA7 CA80 AC2D 6274 2012 EA22`.
-   Alternatively, use 1Password's official apt repository. Put `op` on PATH or
-   in `~/.local/bin`.
-4. Save the service account token to `~/.config/op-agentes/token`, with directory
-   mode 0700 and file mode 0600. Use a local editor or a hidden-input prompt;
-   never paste the token into chat, shell history or repo files. If you also
-   save it in 1Password, keep that copy in your private vault, not the agent vault.
-5. Keep the 1Password browser extension out of the `Agent Use` profile, so the
-   browser worker cannot access the full account. Verify the restricted CLI
-   access without printing the token:
-
-   ```sh
-   OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/op-agentes/token)" op vault list
-   ```
-
-   The list must show only the agent vault.
-
-Chrome workers then use the [1Password sign-in helper](skills/delegate-work/references/chrome.md#signing-in-with-1password).
-The helper reads the token per call and sends values directly into form
-locators; credentials never become helper output. No extension is required.
-
 ### Opening the profile
 
 Open the Agent Use profile manually, or run the installed opener:
@@ -369,8 +324,6 @@ it may use them for signing in only, within your approval and the tool's rules.
 Otherwise it asks you to sign in. Passwords and codes go straight into forms,
 never chat, reports, briefs, files, commits or memory. Ambiguous accounts and
 tool refusals or failures stop the sign-in.
-
-For 1Password, follow [Chrome setup step 4](#4-optional-1password-for-agent-sign-ins).
 
 Agents complete simple human checks, such as a checkbox or press-and-hold, and
 never use CAPTCHA-solving services. Image, audio or puzzle challenges need you.
@@ -411,12 +364,6 @@ every role is a `codex exec` child; no Claude children run. In T3 use the
 If installed, use `~/.local/bin/heavy <command> ...` for full suites, builds and
 whole-project type checks. Focused tests and development servers run directly.
 It is a command gate, not a sandbox; see [bin/heavy](bin/heavy) for its limits.
-
-## Credits
-
-`full-send`, `full-stop` and `babysit-pr` are adapted from
-[t3dotgg/tstack](https://github.com/t3dotgg/tstack), MIT.
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 

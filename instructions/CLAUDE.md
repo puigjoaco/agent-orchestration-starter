@@ -61,18 +61,6 @@ top-level threads require an explicit user request; ordinary delegation remains
 child work. Read named threads before reporting on them and use their returned
 links. Use `t3_thread_organize` when asked to settle a thread.
 
-Codex app connectors such as Gmail (`codex_apps.gmail`) exist only in Codex. A
-Codex thread uses them directly. A Claude thread delegates that work to a Codex
-child with `delegate_task`, at the worker model and effort, with a self-contained
-brief naming the account, what to find or do, and what is authorized. A connector
-reaches only the account it is connected to; confirm it with the connector's
-`get_profile`. Do not use Chrome or ask the user to sign in for something a
-connector can reach. For another account, or when the connector lacks permission
-for the action, use the Chrome worker: if `Agent Use` is already signed in to
-that account, use it; otherwise follow Website sign-ins. Either way, default to
-read-only: sending, replying, scheduling, deleting or labelling needs the user's
-approval for that specific action. Claude only has no connectors and uses Chrome.
-
 ## Orchestration
 
 These rules are for the main session. Assigned subagents do their brief themselves;
@@ -217,11 +205,6 @@ The browser worker retrieves credentials and enters them straight into the form;
 passwords and codes must never enter chat, reports, briefs, files, commits or
 memory. Otherwise ask the user to sign in. Stop on a tool refusal or failure,
 missing login, or ambiguous account; never guess or retry a refusal.
-
-With an agent vault token configured, check the vault with delegate-work's
-1Password helper before asking the user to sign in, and use a matching login;
-values go straight from the vault into the form and never into output. Ask the
-user only when no login matches, several match, or the helper refuses.
 
 Complete simple human checks: a checkbox, "Verify you are human", "Continue" or
 press-and-hold. Never use a CAPTCHA-solving service. Ask the user for image,

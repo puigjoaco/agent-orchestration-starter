@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ('delegate-work', 'review-fix-loop', 'full-send', 'full-stop', 'babysit-pr')
+SKILLS = ('delegate-work', 'review-fix-loop')
 AGENTS = ('scout', 'worker', 'designer', 'advisor', 'reviewer')
 
 
@@ -63,7 +63,7 @@ class InstallTest(unittest.TestCase):
         self.assertFalse((self.home / '.codex').exists())
         self.assertFalse((self.home / '.local').exists())
         rerun = self.install()
-        self.assertEqual(len(rerun.stdout.splitlines()), 11)
+        self.assertEqual(len(rerun.stdout.splitlines()), 8)
         self.assertTrue(all(line.startswith('ok ') for line in rerun.stdout.splitlines()))
         self.assertEqual(list(self.home.rglob('*.bak-*')), [])
 
