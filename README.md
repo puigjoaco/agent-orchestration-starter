@@ -52,7 +52,6 @@ The main session supervises and owns the result.
 - [Chrome reference](skills/delegate-work/references/chrome.md): startup, profiles, redaction and tab ownership.
 - [open_agent_chrome.py](skills/delegate-work/scripts/open_agent_chrome.py): open a named Chrome profile on Linux or macOS.
 - [agent-chrome.mjs](skills/delegate-work/scripts/agent-chrome.mjs): one-call Codex Chrome startup.
-- [t3_thread_title.py](skills/delegate-work/scripts/t3_thread_title.py): print the user's T3 thread title, used to name the Chrome tab group.
 - [chrome-output.mjs](skills/delegate-work/scripts/chrome-output.mjs): redact browser text and data at the output boundary. Best-effort tidying of what agents print, not a security boundary: unusual formats can slip through.
 - [op-login.mjs](skills/delegate-work/scripts/op-login.mjs): fill sign-in locators from a read-only 1Password agent vault without returning credentials.
 - [public_suffix_list.dat](skills/delegate-work/scripts/public_suffix_list.dat): pinned public-suffix rules for login domain matching; upstream revision and license are recorded in the file.

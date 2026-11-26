@@ -16,23 +16,12 @@ Import in the next call, then run startup alone in another call:
 
 ```js
 ({ agent, browser, tab, say, redact, timings, nodeRepl: chromeRepl } = await startAgentChrome({
-  url: 'https://example.org', sessionName: '<thread title>',
+  url: 'https://example.org', sessionName: 'Research task',
 }));
 ```
 
 `chromeRepl` is the redacting wrapper; keep the runtime global intact.
-Use a URL from the brief. For `sessionName`, first run this in the shell and pass
-its output unchanged:
-
-```sh
-python3 ~/.agents/skills/delegate-work/scripts/t3_thread_title.py
-```
-
-It prints the title of the T3 thread the user is working in, so the Chrome tab
-group shows which thread owns it. Only when it prints nothing (outside T3), use
-a short task name.
-
-A throwing call keeps no new declarations; initialize
+Use a URL from the brief. A throwing call keeps no new declarations; initialize
 `var x = null;` in one call and assign it in another. Do not hide bindings inside
 `try` blocks or combine startup with later actions that may fail.
 
@@ -52,10 +41,6 @@ say(await tab.playwright.domSnapshot());
 await tab.playwright.getByRole('button', { name: 'Name from snapshot', exact: true }).click();
 say(await tab.playwright.domSnapshot());
 ```
-
-If a role locator finds nothing for something the snapshot shows, the page hides
-it from accessibility: use `tab.playwright.getByText('Text', { exact: true })` or a
-CSS `tab.playwright.locator('selector')` before reporting a blocker.
 
 Use `say(value)` for all text/data output, including URLs, tab lists and errors.
 Never print handles or form values. Close only tabs you created:
@@ -181,8 +166,7 @@ For an assigned existing tab, set up the plugin runtime without calling
 `~/.agents/skills/delegate-work/scripts/chrome-output.mjs` first, using the
 import pattern in the quick start. Select the returned
 Chrome extension browser by its exact `profileName`, then use its returned ID
-with `agent.browsers.get`. Name the session with `browser.nameSession`, using
-the quick start's session name, before claiming anything.
+with `agent.browsers.get`. Name the session before claiming anything.
 
 Scan `browser.user.openTabs()` only for the task's assigned tabs. Match the
 exact title and URL, then pass that returned object to `browser.user.claimTab`.
